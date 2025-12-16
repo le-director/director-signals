@@ -262,7 +262,8 @@ SCHEMA_VERSION: str = "1.1.0"
 # Kernel version (algorithm version, bump when DSP logic changes)
 # Why: Allows tracking which algorithm version produced specific outputs
 # v1.1.1: Added versioned golden outputs structure with real audio support
-KERNEL_VERSION: str = "1.1.1"
+# v1.2.0: Changed resampling to linear interpolation for C++ parity
+KERNEL_VERSION: str = "1.2.0"
 
 # Timebase version (bump when block/time calculation logic changes)
 # Why: Timebase is foundational - changes affect all downstream outputs

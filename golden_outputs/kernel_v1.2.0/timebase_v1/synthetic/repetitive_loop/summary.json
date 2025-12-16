@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.1.0",
+  "kernel_version": "1.2.0",
+  "timebase_version": "1",
+  "duration_sec": 60.0,
+  "n_blocks": 120,
+  "top_tension_peak": {
+    "time_sec": 0.25,
+    "value": 0.9989757537841797
+  },
+  "num_candidate_drops": 0,
+  "num_stagnant_segments": 0,
+  "longest_stagnant_duration_sec": 0.0,
+  "top_drops": []
+}
