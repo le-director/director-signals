@@ -3,6 +3,7 @@
 director-signals - Command Line Interface
 
 Main entry point for running analysis on audio tracks.
+Uses src/kernel.py for all DSP operations (same as golden_reference.py).
 """
 
 import argparse
@@ -12,7 +13,22 @@ from typing import Optional, List
 import numpy as np
 
 import config
-from src import audio_io, features, aggregation, metrics, events, export
+from src import audio_io, events, export
+from src.kernel import (
+    compute_rms_energy,
+    compute_spectral_features,
+    compute_onset_strength,
+    frames_to_blocks,
+    normalize_block_features,
+    compute_tension_curve,
+    compute_novelty_curve,
+    compute_fatigue_curve,
+)
+from src.kernel_params import KernelConfig, DEFAULT_CONFIG
+from src.timebase import (
+    compute_canonical_block_count,
+    compute_canonical_time_axis,
+)
 
 
 def process_single_track(
@@ -23,6 +39,8 @@ def process_single_track(
 ) -> bool:
     """
     Process a single audio track through the full pipeline.
+
+    Uses kernel.py functions for C++ parity with golden_reference.py.
 
     Parameters:
         file_path: Path to audio file
@@ -39,6 +57,9 @@ def process_single_track(
         if verbose:
             print(f"\nProcessing: {file_path.name}")
             print("-" * 60)
+
+        # Get kernel config
+        cfg = DEFAULT_CONFIG
 
         # Step 1: Load and preprocess audio
         if verbose:
@@ -61,49 +82,120 @@ def process_single_track(
         # Validate audio
         audio_io.validate_audio(audio, sr)
 
-        # Step 2: Extract frame-level features
+        # Get frame/block parameters
+        frame_length = params.get('frame_length', config.FRAME_LENGTH)
+        hop_length = params.get('hop_length', config.HOP_LENGTH)
+        block_duration = params.get('block_duration', config.BLOCK_DURATION_SEC)
+
+        # Step 2: Extract frame-level features using kernel functions
         if verbose:
             print("2. Extracting frame-level features...")
 
-        frame_features = features.extract_all_features(
-            audio, sr,
-            frame_length=params.get('frame_length', config.FRAME_LENGTH),
-            hop_length=params.get('hop_length', config.HOP_LENGTH)
+        rms = compute_rms_energy(audio, frame_length, hop_length)
+        spectral = compute_spectral_features(
+            audio, sr, frame_length, hop_length,
+            rolloff_percent=cfg.spectral.rolloff_percent
         )
+        onset = compute_onset_strength(audio, sr, frame_length, hop_length)
+
+        # Ensure all frame arrays have same length
+        min_frames = min(
+            len(rms), len(onset),
+            len(spectral['spectral_centroid']),
+            len(spectral['spectral_bandwidth'])
+        )
+        rms = rms[:min_frames]
+        onset = onset[:min_frames]
+        centroid = spectral['spectral_centroid'][:min_frames]
+        bandwidth = spectral['spectral_bandwidth'][:min_frames]
 
         if verbose:
-            print(f"   Extracted {frame_features['metadata']['n_frames']} frames")
+            print(f"   Extracted {min_frames} frames")
 
-        # Step 3: Aggregate to blocks
+        # Step 3: Aggregate to blocks using kernel functions
         if verbose:
             print("3. Aggregating features to blocks...")
 
-        block_features, feature_names, block_times = aggregation.aggregate_frame_features(
-            frame_features, sr,
-            frame_hop=params.get('hop_length', config.HOP_LENGTH),
-            block_duration_sec=params.get('block_duration', config.BLOCK_DURATION_SEC),
-            duration_sec=duration  # Pass track duration for canonical timebase
-        )
+        rms_blocks, _ = frames_to_blocks(rms, sr, hop_length, block_duration, 'mean')
+        onset_blocks, _ = frames_to_blocks(onset, sr, hop_length, block_duration, 'mean')
+        centroid_blocks, _ = frames_to_blocks(centroid, sr, hop_length, block_duration, 'mean')
+        bandwidth_blocks, _ = frames_to_blocks(bandwidth, sr, hop_length, block_duration, 'mean')
+
+        # Ensure all block arrays have same length
+        min_blocks = min(len(rms_blocks), len(onset_blocks), len(centroid_blocks), len(bandwidth_blocks))
+        rms_blocks = rms_blocks[:min_blocks]
+        onset_blocks = onset_blocks[:min_blocks]
+        centroid_blocks = centroid_blocks[:min_blocks]
+        bandwidth_blocks = bandwidth_blocks[:min_blocks]
+
+        # Build block feature matrix and normalize
+        block_features = np.column_stack([rms_blocks, onset_blocks, centroid_blocks, bandwidth_blocks])
+        block_features_norm, _ = normalize_block_features(block_features, 'robust')
+
+        # Compute canonical time axis
+        n_blocks = compute_canonical_block_count(duration, block_duration)
+        n_blocks = min(n_blocks, min_blocks)  # Ensure we don't exceed computed blocks
+        block_times = compute_canonical_time_axis(n_blocks, block_duration, duration_sec=duration)
+
+        # Trim to canonical block count
+        rms_blocks = rms_blocks[:n_blocks]
+        onset_blocks = onset_blocks[:n_blocks]
+        centroid_blocks = centroid_blocks[:n_blocks]
+        bandwidth_blocks = bandwidth_blocks[:n_blocks]
+        block_features_norm = block_features_norm[:n_blocks]
 
         if verbose:
-            print(f"   Created {len(block_times)} blocks")
+            print(f"   Created {n_blocks} blocks")
 
-        # Normalize block features
-        block_features_norm, norm_params = aggregation.normalize_block_features(
-            block_features,
-            method=params.get('block_normalize_method', config.BLOCK_NORMALIZE_METHOD)
-        )
-
-        # Step 4: Compute curves
+        # Step 4: Compute curves using kernel functions
         if verbose:
             print("4. Computing long-horizon curves...")
 
-        curves = metrics.compute_all_curves(
-            block_features_norm,
-            feature_names,
-            audio=audio,
-            sr=sr
+        # Tension curve
+        tension_raw, tension_smooth, tension_components, tension_norm_info = compute_tension_curve(
+            rms_blocks=rms_blocks,
+            onset_blocks=onset_blocks,
+            centroid_blocks=centroid_blocks,
+            bandwidth_blocks=bandwidth_blocks,
+            weights=cfg.tension.get_weights(),
+            normalization_mode=cfg.tension.normalization_mode,
+            sr=sr,
+            smooth_alpha=cfg.tension.smooth_alpha,
+            percentile_lower=cfg.tension.percentile_lower,
+            percentile_upper=cfg.tension.percentile_upper
         )
+
+        # Novelty curve
+        novelty_smooth, novelty_raw = compute_novelty_curve(
+            block_features_norm,
+            lookback_blocks=cfg.novelty.lookback_blocks,
+            smooth_window=cfg.novelty.smooth_window
+        )
+
+        # Fatigue curve
+        fatigue_smooth, fatigue_components = compute_fatigue_curve(
+            block_features_norm,
+            novelty_smooth,
+            boundary_blocks=None,
+            weights=cfg.fatigue.get_boring_weights(),
+            window_size=cfg.fatigue.window_blocks,
+            smooth_window=cfg.fatigue.smooth_window,
+            use_leaky_integrator=cfg.fatigue.use_leaky_integrator,
+            gain_up=cfg.fatigue.gain_up,
+            gain_down=cfg.fatigue.gain_down,
+            novelty_spike_threshold=cfg.fatigue.novelty_spike_threshold
+        )
+
+        # Build curves dict (matching golden_reference.py format)
+        curves = {
+            'tension_raw': tension_raw,
+            'tension_smooth': tension_smooth,
+            'novelty': novelty_smooth,
+            'fatigue': fatigue_smooth,
+            'tension_components': tension_components,
+            'tension_normalization': tension_norm_info,
+            'fatigue_components': fatigue_components,
+        }
 
         if verbose:
             print(f"   Computed tension, novelty, and fatigue curves")
@@ -112,15 +204,22 @@ def process_single_track(
         if verbose:
             print("5. Detecting events...")
 
-        detected_events = events.detect_all_events(
-            curves['tension_smooth'],
-            curves['novelty'],
-            curves['fatigue'],
-            block_times,
-            audio=audio,
-            sr=sr,
-            duration_sec=duration  # Pass track duration for event validation
+        candidate_drops = events.detect_candidate_drops(
+            tension_smooth, block_times, duration
         )
+        stagnant_segments = events.detect_stagnant_segments(
+            novelty_smooth, fatigue_smooth, block_times, duration
+        )
+        boundaries = events.detect_section_boundaries(
+            novelty_smooth, tension_smooth, block_times, duration
+        )
+
+        detected_events = {
+            'candidate_drops': candidate_drops,
+            'ranked_drops': candidate_drops,  # Already ranked by score
+            'stagnant_segments': stagnant_segments,
+            'boundaries': boundaries,
+        }
 
         if verbose:
             n_drops = len(detected_events['candidate_drops'])
@@ -167,6 +266,156 @@ def process_single_track(
             import traceback
             traceback.print_exc()
         return False
+
+
+def process_audio_array(
+    audio: np.ndarray,
+    sr: int,
+    params: dict,
+    audio_metadata: dict,
+    verbose: bool = False
+) -> dict:
+    """
+    Process an audio array through the kernel pipeline.
+
+    Used by both process_single_track and run_demo_mode.
+
+    Parameters:
+        audio: Audio array
+        sr: Sample rate
+        params: Parameters dict
+        audio_metadata: Metadata dict for the audio
+        verbose: Print verbose messages
+
+    Returns:
+        Analysis results dict
+    """
+    cfg = DEFAULT_CONFIG
+    duration = len(audio) / sr
+
+    frame_length = params.get('frame_length', config.FRAME_LENGTH)
+    hop_length = params.get('hop_length', config.HOP_LENGTH)
+    block_duration = params.get('block_duration', config.BLOCK_DURATION_SEC)
+
+    # Frame-level features
+    rms = compute_rms_energy(audio, frame_length, hop_length)
+    spectral = compute_spectral_features(
+        audio, sr, frame_length, hop_length,
+        rolloff_percent=cfg.spectral.rolloff_percent
+    )
+    onset = compute_onset_strength(audio, sr, frame_length, hop_length)
+
+    # Ensure all frame arrays have same length
+    min_frames = min(
+        len(rms), len(onset),
+        len(spectral['spectral_centroid']),
+        len(spectral['spectral_bandwidth'])
+    )
+    rms = rms[:min_frames]
+    onset = onset[:min_frames]
+    centroid = spectral['spectral_centroid'][:min_frames]
+    bandwidth = spectral['spectral_bandwidth'][:min_frames]
+
+    # Block aggregation
+    rms_blocks, _ = frames_to_blocks(rms, sr, hop_length, block_duration, 'mean')
+    onset_blocks, _ = frames_to_blocks(onset, sr, hop_length, block_duration, 'mean')
+    centroid_blocks, _ = frames_to_blocks(centroid, sr, hop_length, block_duration, 'mean')
+    bandwidth_blocks, _ = frames_to_blocks(bandwidth, sr, hop_length, block_duration, 'mean')
+
+    # Ensure all block arrays have same length
+    min_blocks = min(len(rms_blocks), len(onset_blocks), len(centroid_blocks), len(bandwidth_blocks))
+    rms_blocks = rms_blocks[:min_blocks]
+    onset_blocks = onset_blocks[:min_blocks]
+    centroid_blocks = centroid_blocks[:min_blocks]
+    bandwidth_blocks = bandwidth_blocks[:min_blocks]
+
+    # Build block feature matrix and normalize
+    block_features = np.column_stack([rms_blocks, onset_blocks, centroid_blocks, bandwidth_blocks])
+    block_features_norm, _ = normalize_block_features(block_features, 'robust')
+
+    # Compute canonical time axis
+    n_blocks = compute_canonical_block_count(duration, block_duration)
+    n_blocks = min(n_blocks, min_blocks)
+    block_times = compute_canonical_time_axis(n_blocks, block_duration, duration_sec=duration)
+
+    # Trim to canonical block count
+    rms_blocks = rms_blocks[:n_blocks]
+    onset_blocks = onset_blocks[:n_blocks]
+    centroid_blocks = centroid_blocks[:n_blocks]
+    bandwidth_blocks = bandwidth_blocks[:n_blocks]
+    block_features_norm = block_features_norm[:n_blocks]
+
+    # Tension curve
+    tension_raw, tension_smooth, tension_components, tension_norm_info = compute_tension_curve(
+        rms_blocks=rms_blocks,
+        onset_blocks=onset_blocks,
+        centroid_blocks=centroid_blocks,
+        bandwidth_blocks=bandwidth_blocks,
+        weights=cfg.tension.get_weights(),
+        normalization_mode=cfg.tension.normalization_mode,
+        sr=sr,
+        smooth_alpha=cfg.tension.smooth_alpha,
+        percentile_lower=cfg.tension.percentile_lower,
+        percentile_upper=cfg.tension.percentile_upper
+    )
+
+    # Novelty curve
+    novelty_smooth, novelty_raw = compute_novelty_curve(
+        block_features_norm,
+        lookback_blocks=cfg.novelty.lookback_blocks,
+        smooth_window=cfg.novelty.smooth_window
+    )
+
+    # Fatigue curve
+    fatigue_smooth, fatigue_components = compute_fatigue_curve(
+        block_features_norm,
+        novelty_smooth,
+        boundary_blocks=None,
+        weights=cfg.fatigue.get_boring_weights(),
+        window_size=cfg.fatigue.window_blocks,
+        smooth_window=cfg.fatigue.smooth_window,
+        use_leaky_integrator=cfg.fatigue.use_leaky_integrator,
+        gain_up=cfg.fatigue.gain_up,
+        gain_down=cfg.fatigue.gain_down,
+        novelty_spike_threshold=cfg.fatigue.novelty_spike_threshold
+    )
+
+    # Build curves dict
+    curves = {
+        'tension_raw': tension_raw,
+        'tension_smooth': tension_smooth,
+        'novelty': novelty_smooth,
+        'fatigue': fatigue_smooth,
+        'tension_components': tension_components,
+        'tension_normalization': tension_norm_info,
+        'fatigue_components': fatigue_components,
+    }
+
+    # Event detection
+    candidate_drops = events.detect_candidate_drops(
+        tension_smooth, block_times, duration
+    )
+    stagnant_segments = events.detect_stagnant_segments(
+        novelty_smooth, fatigue_smooth, block_times, duration
+    )
+    boundaries = events.detect_section_boundaries(
+        novelty_smooth, tension_smooth, block_times, duration
+    )
+
+    detected_events = {
+        'candidate_drops': candidate_drops,
+        'ranked_drops': candidate_drops,
+        'stagnant_segments': stagnant_segments,
+        'boundaries': boundaries,
+    }
+
+    return {
+        'audio_metadata': audio_metadata,
+        'params': params,
+        'curves': curves,
+        'events': detected_events,
+        'block_times': block_times
+    }
 
 
 def process_directory(
@@ -270,7 +519,7 @@ def run_demo_mode(output_dir: Path, params: dict, verbose: bool = False) -> bool
 
         try:
             # Create audio metadata
-            audio_data = {
+            audio_metadata = {
                 'audio': track_info['audio'],
                 'sample_rate': sr,
                 'duration': len(track_info['audio']) / sr,
@@ -284,53 +533,19 @@ def run_demo_mode(output_dir: Path, params: dict, verbose: bool = False) -> bool
                 }
             }
 
-            audio = audio_data['audio']
+            audio = track_info['audio']
 
-            # Extract features
+            # Process using kernel functions
             if verbose:
-                print("Extracting features...")
+                print("Processing with kernel functions...")
 
-            frame_features = features.extract_all_features(audio, sr)
-
-            # Aggregate to blocks
-            block_features, feature_names, block_times = aggregation.aggregate_frame_features(
-                frame_features, sr
-            )
-
-            block_features_norm, _ = aggregation.normalize_block_features(block_features)
-
-            # Compute curves
-            if verbose:
-                print("Computing curves...")
-
-            curves = metrics.compute_all_curves(
-                block_features_norm, feature_names, audio=audio, sr=sr
-            )
-
-            # Detect events
-            if verbose:
-                print("Detecting events...")
-
-            detected_events = events.detect_all_events(
-                curves['tension_smooth'],
-                curves['novelty'],
-                curves['fatigue'],
-                block_times,
-                audio=audio,
-                sr=sr
+            analysis_results = process_audio_array(
+                audio, sr, params, audio_metadata, verbose
             )
 
             # Export
             if verbose:
                 print("Exporting results...")
-
-            analysis_results = {
-                'audio_metadata': audio_data,
-                'params': params,
-                'curves': curves,
-                'events': detected_events,
-                'block_times': block_times
-            }
 
             track_output_dir = output_dir / track_info['name']
             created_files = export.export_all_outputs(
