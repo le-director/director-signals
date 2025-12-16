@@ -1,0 +1,10 @@
+{
+  "schema_version": "1.1.0",
+  "kernel_version": "1.1.1",
+  "timebase_version": "1",
+  "track_name": "repetitive_loop",
+  "candidate_drops": [],
+  "ranked_drops": [],
+  "stagnant_segments": [],
+  "section_boundaries": []
+}

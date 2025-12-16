@@ -1,0 +1,30 @@
+{
+  "version": "1.0",
+  "fixtures": [
+    {
+      "name": "repetitive_loop",
+      "filename": "repetitive_loop.wav",
+      "duration_sec": 60.0,
+      "sample_rate_hz": 22050,
+      "channels": 1,
+      "sha256_bytes": "1ce1c3a7b97cbb6cc294571bba2c0977626d9ab5065c0f65ec399f52c3ff075b"
+    },
+    {
+      "name": "build_drop",
+      "filename": "build_drop.wav",
+      "duration_sec": 60.0,
+      "sample_rate_hz": 22050,
+      "channels": 1,
+      "sha256_bytes": "4e435741ba9bec8834af8ec463ed60877de52b5275a24eb039de555a8bae4e28"
+    },
+    {
+      "name": "contrast",
+      "filename": "contrast.wav",
+      "duration_sec": 60.0,
+      "sample_rate_hz": 22050,
+      "channels": 1,
+      "sha256_bytes": "dc36e0840e723886d97836ee4e63534d2a73fa3117b2c009c09828e451a85186"
+    }
+  ],
+  "fixtures_dir": "fixtures/synthetic_audio"
+}

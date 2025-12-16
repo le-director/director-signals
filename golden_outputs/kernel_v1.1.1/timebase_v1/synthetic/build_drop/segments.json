@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.1.0",
+  "kernel_version": "1.1.1",
+  "timebase_version": "1",
+  "track_name": "build_drop",
+  "candidate_drops": [],
+  "ranked_drops": [],
+  "stagnant_segments": [
+    {
+      "start_time": 16.75,
+      "end_time": 31.75,
+      "duration": 15.0,
+      "avg_novelty": 0.11339201778173447,
+      "avg_fatigue": 0.8300192356109619,
+      "label": "Highly repetitive section"
+    },
+    {
+      "start_time": 53.25,
+      "end_time": 59.75,
+      "duration": 6.5,
+      "avg_novelty": 0.0018587990198284388,
+      "avg_fatigue": 0.7432937622070312,
+      "label": "Repetitive section"
+    }
+  ],
+  "section_boundaries": []
+}

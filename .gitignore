@@ -1,0 +1,57 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environment
+myenv/
+venv/
+ENV/
+env/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+*.cover
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Output directories
+demo_output/
+real_output/
+output/
+*_output/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# Real audio golden outputs (commercial tracks, not committed)
+golden_outputs/**/real_local/
+reference_manifest.json
+results*
+results*/*
+
+# Claude Code internal configuration
+.claude/
+agents/
+
+# Archives
+*.zip

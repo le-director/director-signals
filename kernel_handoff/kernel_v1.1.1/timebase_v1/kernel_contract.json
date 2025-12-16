@@ -1,0 +1,72 @@
+{
+  "kernel_version": "1.1.1",
+  "timebase_version": "1",
+  "schema_version": "1.1.0",
+  "generated_at": "2025-12-13T12:34:49.023239Z",
+  "timebase": {
+    "block_duration_sec": 0.5,
+    "start_time_sec": 0.0
+  },
+  "frame_params": {
+    "frame_length": 2048,
+    "hop_length": 512,
+    "sample_rate": 22050
+  },
+  "curves": {
+    "names": [
+      "tension_raw",
+      "tension_smooth",
+      "novelty",
+      "fatigue"
+    ],
+    "expected_range": [
+      0.0,
+      1.0
+    ],
+    "sampling_interval_sec": 0.5
+  },
+  "tension": {
+    "weights": {
+      "rms": 0.4,
+      "onset_density": 0.3,
+      "spectral_centroid": 0.2,
+      "spectral_bandwidth": 0.1
+    },
+    "smooth_alpha": 0.3,
+    "percentile_lower": 5.0,
+    "percentile_upper": 95.0,
+    "normalization_mode": "robust_track"
+  },
+  "novelty": {
+    "lookback_blocks": 16,
+    "smooth_window": 3
+  },
+  "fatigue": {
+    "window_blocks": 32,
+    "smooth_window": 5,
+    "gain_up": 0.02,
+    "gain_down": 0.08,
+    "novelty_spike_threshold": 0.5,
+    "boring_weights": {
+      "self_similarity": 0.5,
+      "inverse_novelty": 0.3,
+      "inverse_variance": 0.2
+    },
+    "use_leaky_integrator": true
+  },
+  "spectral": {
+    "rolloff_percent": 0.85,
+    "n_mfcc": 13,
+    "n_mels": 40
+  },
+  "anchored_normalization": {
+    "rms_max_dbfs": -6.0,
+    "onset_max": 50.0,
+    "centroid_max_hz": 8000.0,
+    "bandwidth_max_hz": 6000.0
+  },
+  "normalization": {
+    "percentile_lower": 1.0,
+    "percentile_upper": 99.0
+  }
+}
