@@ -48,9 +48,16 @@ def load_audio(file_path: str, target_sr: Optional[int] = None) -> Tuple[np.ndar
         ValueError: If file format is unsupported
     """
     if LIBROSA_AVAILABLE:
-        # librosa.load returns mono by default and normalizes to [-1, 1]
-        audio, sr = librosa.load(file_path, sr=target_sr, mono=True)
-        return audio.astype(np.float32), sr
+        # Load at native sample rate first, then use our linear resampler for C++ parity
+        audio, sr = librosa.load(file_path, sr=None, mono=True)
+        audio = audio.astype(np.float32)
+
+        # Resample using our linear interpolation (not librosa's default)
+        if target_sr is not None and sr != target_sr:
+            audio = resample_audio(audio, sr, target_sr)
+            sr = target_sr
+
+        return audio, sr
     else:
         # Fallback to scipy (WAV only)
         sr, audio = wavfile.read(file_path)
