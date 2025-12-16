@@ -62,6 +62,8 @@ def create_metrics_json(
 
     metrics = {
         'schema_version': config.SCHEMA_VERSION,
+        'kernel_version': config.KERNEL_VERSION,
+        'timebase_version': config.TIMEBASE_VERSION,
 
         'track_metadata': {
             'duration': audio_metadata['duration'],
