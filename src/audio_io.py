@@ -22,6 +22,7 @@ except ImportError:
 if not LIBROSA_AVAILABLE:
     from scipy.io import wavfile
     from scipy import signal as scipy_signal
+    from scipy.interpolate import interp1d
 
 import config
 
@@ -117,9 +118,10 @@ def convert_to_mono(audio: np.ndarray, method: str = 'average') -> np.ndarray:
 
 def resample_audio(audio: np.ndarray, orig_sr: int, target_sr: int) -> np.ndarray:
     """
-    Resample audio to target sample rate.
+    Resample audio to target sample rate using linear interpolation.
 
-    Uses librosa if available, otherwise scipy.signal.resample.
+    Uses linear interpolation for C++ parity with juce::LinearInterpolator.
+    Output length uses ceil to match C++ implementation.
 
     Parameters:
         audio: Audio array
@@ -132,12 +134,18 @@ def resample_audio(audio: np.ndarray, orig_sr: int, target_sr: int) -> np.ndarra
     if orig_sr == target_sr:
         return audio
 
+    # Use ceil for output length to match C++ JUCE implementation
+    num_samples = int(np.ceil(len(audio) * target_sr / orig_sr))
+
     if LIBROSA_AVAILABLE:
-        return librosa.resample(audio, orig_sr=orig_sr, target_sr=target_sr)
+        # Use linear interpolation for C++ parity
+        return librosa.resample(audio, orig_sr=orig_sr, target_sr=target_sr, res_type='linear')
     else:
-        # Use scipy resample
-        num_samples = int(len(audio) * target_sr / orig_sr)
-        return scipy_signal.resample(audio, num_samples).astype(np.float32)
+        # Linear interpolation using scipy.interpolate.interp1d
+        old_indices = np.arange(len(audio))
+        new_indices = np.linspace(0, len(audio) - 1, num_samples)
+        interpolator = interp1d(old_indices, audio, kind='linear', fill_value='extrapolate')
+        return interpolator(new_indices).astype(np.float32)
 
 
 def normalize_audio(
