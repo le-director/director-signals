@@ -1,0 +1,12 @@
+{
+  "schema_version": "1.1.0",
+  "duration_sec": 60.0,
+  "top_tension_peak": {
+    "time_sec": 55.75,
+    "value": 0.991653561592102
+  },
+  "num_candidate_drops": 0,
+  "longest_stagnant_duration_sec": 14.5,
+  "top_drops": [],
+  "num_stagnant_segments": 2
+}

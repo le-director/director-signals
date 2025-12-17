@@ -1,0 +1,81 @@
+{
+  "schema_version": "1.1.0",
+  "track_name": "build_drop",
+  "stagnant_segments": [
+    {
+      "start_time": 16.75,
+      "end_time": 30.25,
+      "duration": 13.5,
+      "avg_novelty": 0.1464715301990509,
+      "avg_fatigue": 0.824485182762146,
+      "label": "Highly repetitive section"
+    },
+    {
+      "start_time": 52.25,
+      "end_time": 59.75,
+      "duration": 7.5,
+      "avg_novelty": 0.0009773129131644964,
+      "avg_fatigue": 0.7546581029891968,
+      "label": "Repetitive section"
+    }
+  ],
+  "candidate_drops": [
+    {
+      "time": 30.25,
+      "block_idx": 60,
+      "tension": 0.973240852355957,
+      "prominence": 0.45595890283584595,
+      "score": 0.6000000000000001,
+      "event_type": "plateau_peak",
+      "rule_breakdown": {
+        "has_prominence": true,
+        "has_build": false,
+        "build_slope": 0.015334166586399078,
+        "build_duration_blocks": 8,
+        "has_drop_pattern": true,
+        "post_drop_mean": 0.7486319541931152,
+        "has_persistence": false,
+        "persistence_duration_sec": 2.0,
+        "n_contrast_components": 0,
+        "in_plateau": true
+      }
+    }
+  ],
+  "ranked_drops": [
+    {
+      "time": 30.25,
+      "block_idx": 60,
+      "tension": 0.973240852355957,
+      "prominence": 0.45595890283584595,
+      "score": 0.6000000000000001,
+      "event_type": "plateau_peak",
+      "rule_breakdown": {
+        "has_prominence": true,
+        "has_build": false,
+        "build_slope": 0.015334166586399078,
+        "build_duration_blocks": 8,
+        "has_drop_pattern": true,
+        "post_drop_mean": 0.7486319541931152,
+        "has_persistence": false,
+        "persistence_duration_sec": 2.0,
+        "n_contrast_components": 0,
+        "in_plateau": true
+      },
+      "impact_score": 0.18605810403823853,
+      "impact_components": {
+        "rms_delta": 0.4651452600955963,
+        "onset_delta": -0.8052642345428467,
+        "centroid_delta": -0.7053849697113037,
+        "bandwidth_delta": -0.9283909201622009
+      },
+      "combined_score": 0.3930290520191193
+    }
+  ],
+  "section_boundaries": [
+    {
+      "time": 31.75,
+      "confidence": 0.7131044268608093,
+      "reason": "Section transition (novelty peak)"
+    }
+  ]
+}
