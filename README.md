@@ -200,7 +200,13 @@ described in *Sweet Anticipation*.
 This project does **not** claim to validate or prove the theory.
 It represents an independent operationalisation that appears consistent with it.
 
-**v1.0 is dedicated to the memory of David Huron.**
+You can find chapter one here:
+
+https://www.researchgate.net/publication/209436188_Sweet_Anticipation_Music_and_the_Psychology_of_Expectation
+
+I decided to email David to say thank you, only to realise he'd left the planet for a better place. 
+
+Therefore, **v1.0 is dedicated to the memory of David Huron.**
 
 ## Limitations
 
