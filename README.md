@@ -28,7 +28,7 @@ This code is **not** a real-time engine or DAW plugin. It is a research and prot
 
 Hey, I love music. All kinds. But I'm sitting there one day and Beyoncé's *Haunted* comes on. Not my usual tipple although I have been identifying as Taylor Swift since 2019.
 
-I've never spent time listening to Beyoncé before (promise). I sat there, listening — if you've not heard the track, go listen. The journey is wild. I cannot describe the emotions I endured during the first playback.
+I've never spent time listening to Beyoncé before (promise). I sat there, listening and if you've not heard the track, go listen. The journey is wild. I cannot describe the emotions I endured during the first playback.
 
 I wanted to work out WHY it had such an impact on me, and as a man of the Internet, I decided it would be fun to try it with some engineering. And here we are.
 
